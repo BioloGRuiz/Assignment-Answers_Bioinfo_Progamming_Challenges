@@ -3,54 +3,22 @@ require 'json'
 require './utils.rb'
 require  './gene.rb'
 require  './interactionNetwork.rb'
+require  './report_creator.rb'
 
-def prueba_fetch()
-  #res = Utils.fetch('http://www.ebi.ac.uk/Tools/dbfetch/dbfetch?db=ensemblgenomesgene&format=embl&id=At3g54340')
-  res = Utils.fetch("http://www.ebi.ac.uk/Tools/webservices/psicquic/intact/webservices/current/search/interactor/At3g54340?species:3702?format=xml25")
-
-  puts res
-  
-  if res  # res is either the response object (RestClient::Response), or false, so you can test it with 'if'
-    body = res.body  # get the "body" of the response
-    #headers = res.headers  # get other details about the HTTP message itself
-    #puts body
-    #puts res
-  else
-    puts "the Web call failed - see STDERR for details..."
-  end
+if ARGV.length() != 3
+    abort "Run this using the command\n main.rb ArabidopsisSubNetwork_GeneList.txt [name of final report].txt [depth number]"
 end
 
 
-def read_txt(path)
-  #How to read the txt: https://www.rubyguides.com/2015/05/working-with-files-ruby/
-  genes_list = File.read(path).split
-  #How to put caps the whole array: https://stackoverflow.com/questions/11402362/how-can-i-uppercase-each-element-of-an-array/11402608
-  genes_list.map!(&:upcase)
-  return genes_list
-end
+gene_list_txt, final_report, depth = ARGV
 
-def prueba_gene()  
-  genes_list_names = read_txt("ArabidopsisSubNetwork_GeneList.txt")
-  genes_list = Array.new
-  genes_list_names.each do |gene_id|
-      gene = Gene.new(id: gene_id)
-      genes_list << gene
-  end
-  
-  genes_list.each do |gene|
-    puts gene.gene_id
-  end
-end
+depth = depth.to_i
+#depth = 2   # SELECTING THE DEPTH
+#depth = 3   # SELECTING THE DEPTH
 
-#################
-################# HASTA AQUI LAS PRUEBAS
-#################
-
-
-depth = 3
-
-#cargar genes
-genes_list_names = read_txt("Corto_Pruebas.txt")
+# Loading Genes
+#genes_list_names = Utils.read_txt("ArabidopsisSubNetwork_GeneList.txt")
+genes_list_names = Utils.read_txt(gene_list_txt)
 
 genes_list = Array.new
 genes_list_names.each do |gene_id|
@@ -58,14 +26,20 @@ genes_list_names.each do |gene_id|
     genes_list << gene
 end
 
-net_list = Array.new
-genes_list.each do |gene|
-  new_net = InteractionNetwork.new(gene_id: gene.gene_id, depth: depth)
-  net_list << new_net
-  
-  puts new_net.network
-  puts ''
+##CREAR NUEVA CLASE
+
+for gene in genes_list do
+  new_net = InteractionNetwork.new(gene_id: gene.gene_id, depth: depth, all_list_genes: genes_list_names)
+  #net_list << new_net
+  #puts new_net.network
+  #puts ''
 end
 
+lista_nets = new_net.all_networks()
+lista_nets.each do |net|
+  puts net.genes_in_network # SHOWING THE GENES IN OUR ORIGINAL LIST THAT WILL INTERACT WITH EACH OTHER (FORMING NETWORKS)
+  puts net.network  # SHOWING FULL NETWORKS, WHICH WILL CONTAIN BOTH THE ORIGINAL GENES IN OUR LIST, AS WELL AS THOSE THAT ARE OUTSIDE THE LIST
+  puts '' # Printing an space between each Network found, to better visualize it in the terminal
+end
 
-
+write_report(final_report, lista_nets, genes_list_names)

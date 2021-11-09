@@ -1,17 +1,39 @@
 require 'rest-client'
 require 'json'
+require './utils.rb'
 
 class InteractionNetwork
 
-    #code
-    
-    attr_accessor :network
+    attr_accessor :network              # Attribute corresponding to the hash that will contain all found networks
+    attr_accessor :genes_in_network     # Attribute corresponding to all genes in our original list which will interact with each other, forming the networks
+    attr_accessor :all_genes            # Attribute corresponding to all genes in our original list
+    attr_accessor :kegg_pathway         # Attribute corresponding to the KEGG annotations of the genes of the networks
+    attr_accessor :go_terms             # Attribute corresponding to the GO biological proccesses annotations of the genes of the networks
+    @@all_networks = []                 # Class variable in which we are going to include valid networks (those that include 2 or more of the genes listed in our list)
     
     def initialize(params={})
       depth = params.fetch(:depth)
-      @network = Hash.new
       gene_id = params.fetch(:gene_id)
-      search_Interaction(gene_id, depth)
+      
+      @network = Hash.new
+      @genes_in_network = []
+      @genes_in_network << gene_id
+      @all_genes = params.fetch(:all_list_genes)
+      
+      search_Interaction(gene_id, depth) # Calling the search_Interaction function (defined below), which is the main function of this class.
+
+      if genes_in_network.length() > 1
+        @@all_networks << self
+      end
+      
+      
+      #@kegg_pathway = get_kegg(ids=@genes_in_network) #get KEGG pathways annotation of all the genes in our original list which form networks
+      #@go_terms = get_go_terms(ids=@genes_in_network)    #get GO biological processes annotation of all the genes in our original list which form networks
+      
+      network_in_array = @network.keys | @network.values.flatten.uniq
+      @kegg_pathway = get_kegg(ids=network_in_array) #get KEGG pathways annotation of all the genes in our original list which form networks
+      @go_terms = get_go_terms(ids=network_in_array)    #get GO biological processes annotation of all the genes in our original list which form networks
+      
     end
     
 
@@ -20,26 +42,26 @@ class InteractionNetwork
       res = Utils.fetch ("http://www.ebi.ac.uk/Tools/webservices/psicquic/intact/webservices/current/search/interactor/#{gene_id}?species:3702?format=tab25")
       if res
         lines = res.body.split("\n")
+        
         #-------iteration of lines from ebi----------------
-
+        
         lines.each do |i|
           line_splitted = i.split("\t")
-          p1_locus = line_splitted[4]
-          p2_locus = line_splitted[5]
-          score = line_splitted[14]
+          p1_locus = line_splitted[4] # Selecting the 5th element
+          p2_locus = line_splitted[5] # Selecting the 6th element
+          score = line_splitted[14]   # Selecting the 15th element
           
+          intact_miscore = score.sub(/intact-miscore:/, "").to_f # Extracting the miscore number
           
-          intact_miscore = score.sub(/intact-miscore:/, "").to_f #Extracting just the miscore number
-          
-          #Now we are going to apply some filters:
-          p1_locus = p1_locus.match(/A[Tt]\d[Gg]\d{5}/).to_s.upcase #Filter 1:Applying a regular expression to match the Locus code
+          #------Now we are going to apply some filters:------
+          p1_locus = p1_locus.match(/A[Tt]\d[Gg]\d{5}/).to_s.upcase # Filter 1:Applying a regular expression to match the Locus code
           if p1_locus == ""
             next
           else
             g1 = p1_locus
           end
          
-          p2_locus = p2_locus.match(/A[Tt]\d[Gg]\d{5}/).to_s.upcase #Filter 1: Applying a regular expression to match the Locus code
+          p2_locus = p2_locus.match(/A[Tt]\d[Gg]\d{5}/).to_s.upcase # Filter 1: Applying a regular expression to match the Locus code
           if p2_locus == ""
             next
           else
@@ -55,52 +77,99 @@ class InteractionNetwork
             next
           end
           
-          if intact_miscore < 0.5#0.485 #Filter 4: When the miscore is lower than 0.485, this value was taken from the literature ##REVISAR
+          if intact_miscore < 0.485 #Filter 4: When the miscore is lower than 0.485, this value was taken from the literature --> ncbi.nlm.nih.gov/pmc/articles/PMC4316181/
             next
           end
-          # END OF FILTERS
+          #---------END OF FILTERS--------
           
-          #Comprobar (Borrar)
-          #puts "Pareja en-> #{gene_id} con #{g2}"
+          #puts "Interaction-> #{gene_id} with #{g2}" --> JUST CHECKING
           
           
-          #Comprobar si puedes guardarlo en el hash
-          if @network.keys.include?(g2) #G2 ya existe en la network? 
-            if @network[g2].include?(g1) #G2 ya tiene una relacion con g1?
-                #This is a L00P!
+          # Checking if it can be saved into the hash
+          if @network.keys.include?(g2)     # g2 already exists on the network?
+            # if it already exists
+            if @network[g2].include?(g1)    # g2 already has a relationship with g1? --> This is a L00P! (A --> B --> A)
                 next
             end
           end
           
-          
-          #Guardarlo
-          if @network.keys.include?(g1)
-            #Si ya existe
-            if @network[g1].include?(g2)
+          # Checking if it can be saved into the hash
+          if @network.keys.include?(g1)     # g1 already exists on the network? 
+            # if it already exists
+            if @network[g1].include?(g2)    # g1 already has a relationship with g2?
               next
             end
-            @network[g1] << g2 #Append al array de g1
+            
+            checking_listed(g2)
+            @network[g1] << g2 # Append to the g1 array
           else
+            
+            checking_listed(g2)
             @network[g1] = [g2]
           end
           
-          #Puedo seguir mirando? (DEPTH)
+          # Should I keep looking for? (DEPTH)
           if depth > 1
-            #Seguir mirando (con un depth menos!)
-            search_Interaction(g2, depth-1)
+            # Keep going (with one less depth!)
+            search_Interaction(g2, depth-1) # HERE WE CALL THE SAME FUNCTION --> RECURSION
           end
           if depth == 0
             next
           end
 
         end
-        # END OF FOR
+        #-----------END OF ITERATION-----------
         
       else
-          puts "Error with: #{@gene_id}"
+          puts "Error with: #{@gene_id}" # An error message just in case any iteration fails
       end
         
     end
  
+    def checking_listed(new_gen_id) # Defining a new function, which will 
+        if @all_genes.include?(new_gen_id)
+            @genes_in_network |= [new_gen_id]
+        end
+    end
+    
+    def all_networks
+      return @@all_networks
+    end
+    
+    def get_kegg(genes_id)
+        result = []
+        genes_id.each do |id|
+            res = Utils.fetch ("http://togows.org/entry/genes/ath:#{id}/pathways.json")
+            if res
+                respuesta = JSON.parse(res.body)[0]
+                respuesta.each do |kegg_id,kegg_p|
+                    puts kegg_id
+                    puts kegg_p
+                   result << [kegg_id,kegg_p] 
+                end
+                
+            end
+            return result  
+        end
+    end
+
+    
+    def get_go_terms(genes_id)
+        result = []
+        genes_id.each do |id|
+            res = Utils.fetch ("http://togows.org/entry/uniprot/#{id}/dr.json")
+            if res
+                respuesta = JSON.parse(res.body)[0]
+                respuesta['GO'].each do |go|
+                    if go[1].start_with?('P:')
+                        result << [go[0], go[1].slice(2..-1)]
+                    end
+                
+                end
+                
+            end
+            return result.uniq
+        end
+    end
     
 end

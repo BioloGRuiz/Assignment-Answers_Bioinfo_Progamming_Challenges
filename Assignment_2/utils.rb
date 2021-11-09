@@ -24,4 +24,12 @@ class Utils
     response = false
     return response  # now we are returning 'False', and we will check that with an \"if\" statement in our main code
   end
+  
+  def self.read_txt(path)
+  #How to read txt: https://www.rubyguides.com/2015/05/working-with-files-ruby/
+  genes_list = File.read(path).split
+  #How to put the whole array in caps: https://stackoverflow.com/questions/11402362/how-can-i-uppercase-each-element-of-an-array/11402608
+  genes_list.map!(&:upcase)
+  return genes_list
+  end
 end
