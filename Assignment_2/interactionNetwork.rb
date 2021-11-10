@@ -22,22 +22,18 @@ class InteractionNetwork
       
       search_Interaction(gene_id, depth) # Calling the search_Interaction function (defined below), which is the main function of this class.
 
-      if genes_in_network.length() > 1
+      if genes_in_network.length() > 1  # If the network is formed by more than 1 gen (of course), it appends to the array defined by the class variable --> @@all_networks
         @@all_networks << self
       end
       
-      
-      #@kegg_pathway = get_kegg(ids=@genes_in_network) #get KEGG pathways annotation of all the genes in our original list which form networks
-      #@go_terms = get_go_terms(ids=@genes_in_network)    #get GO biological processes annotation of all the genes in our original list which form networks
-      
-      network_in_array = @network.keys | @network.values.flatten.uniq
-      @kegg_pathway = get_kegg(ids=network_in_array) #get KEGG pathways annotation of all the genes in our original list which form networks
-      @go_terms = get_go_terms(ids=network_in_array)    #get GO biological processes annotation of all the genes in our original list which form networks
+      network_in_array = @network.keys | @network.values.flatten.uniq   # Transforming the information obtained in networks from Hash to Array --> https://stackoverflow.com/questions/24739271/ruby-new-unique-array-of-nested-array-items
+      @kegg_pathway = get_kegg(ids=network_in_array)    #get KEGG pathways annotation of all the genes which form networks
+      @go_terms = get_go_terms(ids=network_in_array)    #get GO biological processes annotation of all the genes which form networks
       
     end
     
 
-    def search_Interaction(gene_id, depth)
+    def search_Interaction(gene_id, depth) #MAIN FUNCTION OF THIS CLASS
 
       res = Utils.fetch ("http://www.ebi.ac.uk/Tools/webservices/psicquic/intact/webservices/current/search/interactor/#{gene_id}?species:3702?format=tab25")
       if res
@@ -126,9 +122,9 @@ class InteractionNetwork
         
     end
  
-    def checking_listed(new_gen_id) # Defining a new function, which will 
+    def checking_listed(new_gen_id) # Defining a new function, which will append any gene that is found in the network if it belongs to the original gene list
         if @all_genes.include?(new_gen_id)
-            @genes_in_network |= [new_gen_id]
+            @genes_in_network |= [new_gen_id] # Ruby function for uniquely appending to an array --> https://stackoverflow.com/questions/8569039/ruby-assignment-operator
         end
     end
     
@@ -136,15 +132,13 @@ class InteractionNetwork
       return @@all_networks
     end
     
-    def get_kegg(genes_id)
+    def get_kegg(genes_id) # Defining the function that will look for any KEGG Pathways the interaction network members are part of
         result = []
         genes_id.each do |id|
             res = Utils.fetch ("http://togows.org/entry/genes/ath:#{id}/pathways.json")
             if res
                 respuesta = JSON.parse(res.body)[0]
                 respuesta.each do |kegg_id,kegg_p|
-                    puts kegg_id
-                    puts kegg_p
                    result << [kegg_id,kegg_p] 
                 end
                 
@@ -154,7 +148,7 @@ class InteractionNetwork
     end
 
     
-    def get_go_terms(genes_id)
+    def get_go_terms(genes_id) # Defining the function that will look for any GO Terms associated with the total of all genes in the network
         result = []
         genes_id.each do |id|
             res = Utils.fetch ("http://togows.org/entry/uniprot/#{id}/dr.json")
@@ -162,13 +156,13 @@ class InteractionNetwork
                 respuesta = JSON.parse(res.body)[0]
                 respuesta['GO'].each do |go|
                     if go[1].start_with?('P:')
-                        result << [go[0], go[1].slice(2..-1)]
+                        result << [go[0], go[1].slice(2..-1)] # Ruby function which returns a subarray specified by range of indices --> https://www.geeksforgeeks.org/ruby-array-slice-function/
                     end
                 
                 end
                 
             end
-            return result.uniq
+            return result.uniq # Removing duplicate values in an array --> https://apidock.com/ruby/Array/uniq
         end
     end
     
