@@ -44,7 +44,7 @@ def get_embl(file)
 end
 
 # The Bio::EMBL object finds every 'CTTCTT' sequence in the exons of each gene.
-# We will add the features selected to a new Bio::Sequence object, which will contain all the previous information of the Bio::EMBL objectject}.
+# We will add the features selected to a new Bio::Sequence object, which will contain all the previous information of the Bio::EMBL object
 
 
 def add_features(pos_list, strand, bioseq) # Adding new features to the Sequence entries
@@ -52,52 +52,66 @@ def add_features(pos_list, strand, bioseq) # Adding new features to the Sequence
   #strand --> DNA strand orientation. Positive --> '+', negative --> '-' (complementary). BioRuby reads and presents sequences in 5' → 3'
   #bioseq --> Bio::Sequence object, made from a Bio::EMBL object to be able to add features to it
   pos_list.each do |pos|
-    ft=Bio::Feature.new('CTTCTT_repetition',pos) # unique feature type and its location
-    ft.append(Bio::Feature::Qualifier.new('repeat_motif','cttctt')) #
-    ft.append(Bio::Feature::Qualifier.new('function','insertion site'))
+    ft=Bio::Feature.new('CTTCTT_repetition',pos) # just creating a Bio::Feature object --> http://bioruby.org/rdoc/Bio/Feature.html
+    ft.append(Bio::Feature::Qualifier.new('repeat_motif','cttctt')) # here we add some qualifier-value pairs for sequence features --> http://bioruby.org/rdoc/Bio/Feature/Qualifier.html
+    ft.append(Bio::Feature::Qualifier.new('function','insertion site')) # here we add some qualifier-value pairs for sequence features --> http://bioruby.org/rdoc/Bio/Feature/Qualifier.html
     if strand == 1
-      ft.append(Bio::Feature::Qualifier.new('strand', '+'))
+      ft.append(Bio::Feature::Qualifier.new('strand', '+')) # here we add some qualifier-value pairs for sequence features
     elsif strand == -1
-      ft.append(Bio::Feature::Qualifier.new('strand', '-'))
+      ft.append(Bio::Feature::Qualifier.new('strand', '-')) # here we add some qualifier-value pairs for sequence features
     end
-    bioseq.features << ft
+    bioseq.features << ft # just appending all features obtained to the Bio::Sequence object
   end
 end
 
 def load_new_data(gene_list)
-  new_gene_list = Hash.new
+  new_gene_list = Hash.new # creating a Hash in which we will store each of the sequences found in the exons, along with their features
   forward_seq=(Bio::Sequence::NA.new("CTTCTT")).to_re # Regular expression used for the + strand
   reverse_seq=(Bio::Sequence::NA.new("AAGAAG")).to_re # Regular expression used for the - strand --> Complementary
   
   gene_list.each do |code, embl|
   
-    bioseq = embl.to_biosequence
+    bioseq = embl.to_biosequence # just turning the Bio::EMBL into Bio::Sequence so that we can add features
     positions_added_f = [] # In this local variable we will store the different added positions of each gene, for the + strand
     positions_added_r = [] # In this local variable we will store the different added positions of each gene, for the - strand --> Complementary
     embl.features do |feature|
       
-      if feature.feature == "exon"
+      if feature.feature == "exon" # retrieving the location and NA sequence of every exon found
         feature.locations.each do |location|  
-          exon_seq=embl.seq[location.from..location.to]
-
+          exon_seq = embl.seq[location.from..location.to]
+          
           if exon_seq == nil  # If it is empty, go next
             next
           end
           if location.strand == 1   # If the found sequence is located in the primary string (+ strand)
-            if exon_seq.match(forward_seq)
-              #position_match_seq = [position_match_ex + loc.from, position_match_ex + loc.from + 5]
-              positionf = [exon_seq.match(forward_seq).begin(0)+1,exon_seq.match(forward_seq).end(0)].join('..') #
-              if !positions_added_f.include?(positionf) # Avoiding the addition of the same feature mote than once
-                positions_added_f << positionf
-              end
+            if exon_seq.match(forward_seq) # if any exon contains the NA sequence "CTTCTT":
+              # retrieve the positions for each of the "CTTCTT" sequences found.
+              # matching the regex and getting the position in the string of the match --> https://coderedirect.com/questions/175103/ruby-regex-match-and-get-positions-of
+              # as the sequences can be OVERLAPPED (for example, "CTTCTTCTT"), we need to use something like a lookahead assertion --> https://stackoverflow.com/questions/11430863/how-to-find-overlapping-matches-with-a-regexp
+              # with the Ruby Map Method (".map"), we add to each of the positions of these found sequences the respective positions of their respective exons --> https://www.rubyguides.com/2018/10/ruby-map-method/
+              positions_f = exon_seq.enum_for(:scan, /(?=(cttctt))/i).map { [location.from + Regexp.last_match.begin(0),location.from +  Regexp.last_match.begin(0) + 5 ]}
+              
+              #positions_f.each do |pos|  --> just a loop for printing in the terminal the sequences found in the + strand
+              #  puts(exon_seq[pos[0]..pos[1]])
+              #end
+              
+              positions_f = positions_f.map {|pos| pos.join('..')} # with the Ruby Map Method (".map"), we join the start and end points of each of the positions of these found sequences --> https://www.rubyguides.com/2018/10/ruby-map-method/
+              positions_added_f |= positions_f # adding positions without duplicates --> https://stackoverflow.com/questions/8569039/ruby-assignment-operator
             end
           end
           if location.strand == -1  # If the found sequence is located in the complementary string (- strand)
-            if exon_seq.match(reverse_seq)
-              positionr = [exon_seq.match(reverse_seq).begin(0),exon_seq.match(reverse_seq).end(0)-1].join('..')#
-              if !positions_added_r.include?(positionr) # Avoiding the addition of the same feature mote than once
-                positions_added_r << positionr
-              end
+            if exon_seq.match(reverse_seq) # if any exon contains the NA sequence "AAGAAG":
+              # retrieve the positions for each of the "AAGAAG" sequences found.
+              # matching the regex and getting the position in the string of the match --> https://coderedirect.com/questions/175103/ruby-regex-match-and-get-positions-of
+              # as the sequences can be OVERLAPPED (for example, "AAGAAGAAG"), we need to use something like a lookahead assertion --> https://stackoverflow.com/questions/11430863/how-to-find-overlapping-matches-with-a-regexp
+              # with the Ruby Map Method (".map"), we add to each of the positions of these found sequences the respective positions of their respective exons --> https://www.rubyguides.com/2018/10/ruby-map-method/
+              positions_r = exon_seq.enum_for(:scan, /(?=(aagaag))/i).map { [location.from +  Regexp.last_match.begin(0), location.from +  Regexp.last_match.begin(0) + 5 ]}
+
+              #positions_r.each do |pos| --> just a loop for printing in the terminal the sequences found in the - strand
+              #  puts(exon_seq[pos[0]..pos[1]])
+              #end
+              positions_r = positions_r.map {|pos| pos.join('..')} # with the Ruby Map Method (".map"), we join the start and end points of each of the positions of these found sequences --> https://www.rubyguides.com/2018/10/ruby-map-method/
+              positions_added_r |= positions_r # adding positions without duplicates --> https://stackoverflow.com/questions/8569039/ruby-assignment-operator
             end
           end
         end
@@ -115,12 +129,12 @@ def load_new_data(gene_list)
 end
 
 
-def report_genes_gff3(new_gene_list)  # Whith this function we will create a GFF3-formatted file of the different CTTCTT features obtained
+def report_genes_gff3(new_gene_list)  # Whith this function we will create a GFF3-formatted file of the different CTTCTT features obtained, along with the coordinates of every CTTCTT sequence obtained
   source="BioRuby"
   type="direct_repeat"
   score="."
   phase="."
-  File.open('CTTCTT_genes_report.gff3', 'w+') do |gen| # Just writing the file in .gff3 format
+  File.open('CTTCTT_genes_report_1.gff3', 'w+') do |gen| # Just writing the file in .gff3 format
     gen.puts("##gff-version 3") # The first line of a GFF3 file must be a comment that identifies the version --> http://www.ensembl.org/info/website/upload/gff3.html
     #gen.puts("GFF3 REPORT: FEATURES OBTAINED FOR THE SEQUENCE 'CTTCTT'")
     #gen.puts("AGI locus code\tSource\tType\tStartPos\tEndpos\tScore\tStrand\tPhase\tAttributes") # printing headers
@@ -139,12 +153,12 @@ def report_genes_gff3(new_gene_list)  # Whith this function we will create a GFF
   end
 end
 
-def report_chromosome_gff3(new_gene_list) # Whith this function we will create a GFF3-formatted file of the different CTTCTT features obtained
+def report_chromosome_gff3(new_gene_list) # Whith this function we will create a GFF3-formatted file of the different CTTCTT features obtained, along with the full chromosome coordinates in which the CTTCTT regions appear
   source="BioRuby"
   type="direct_repeat"
   score="."
   phase="."
-  File.open('CTTCTT_chromosomes_report.gff3', 'w+') do |chr| # Just writing the file in .gff3 format
+  File.open('CTTCTT_chromosomes_report_1.gff3', 'w+') do |chr| # Just writing the file in .gff3 format
     chr.puts("##gff-version 3") # The first line of a GFF3 file must be a comment that identifies the version --> http://www.ensembl.org/info/website/upload/gff3.html
     #chr.puts("GFF3 REPORT: FEATURES OBTAINED FOR THE SEQUENCE 'CTTCTT'")
     #chr.puts("Chromosome seqid\tSource\tType\tStartPos\tEndpos\tScore\tStrand\tPhase\tAttributes") # printing headers
@@ -171,7 +185,7 @@ end
 
 def noreps_report(gene_list,new_gene_list) # now we will create another report, in which the loci with no CTTCTT repeats are listed
   contador=0
-  File.open('CTTCTT_noRepeats_report.txt', 'w+') do |norep|
+  File.open('CTTCTT_noRepeats_report_1.txt', 'w+') do |norep|
     norep.puts("Here is presented the list of loci which contain no CTTCTT repeats:")
     gene_list.each do |a,b|
       unless new_gene_list.keys.include?(a) # the loci codes that are not in the new_gene_list variable are the ones for which the repeat has not been found
