@@ -4,7 +4,7 @@ To obtain the .txt file with the orthologue pairs between species A. thaliana an
 
 **$ ruby assignment4.rb ./BLAST_databases/arabidopsis_th.fa ./BLAST_databases/s_pombe.fa**
 
-## WARNING: since the computation time needed to perform the search for all ortholog pairs is quite high (up to 2 hours!), it is recommended to use the following command instead:
+## WARNING: since the computation time needed to perform the search for all ortholog pairs is quite high (in principle it should take a couple of hours, but in my case the execution of the code was always interrupted after several minutes, without any apparent reason), it is recommended to use the following command instead:
 
 **$ ruby assignment4_test.rb ./BLAST_databases/arabidopsis_th.fa ./BLAST_databases/s_pombe.fa**
 
@@ -28,5 +28,5 @@ The principal BLAST parameters on which the search for orthologues has been base
 
 * One interesting way would be **including a third species** (ideally related to Arabidopsis and S. pombe.), and perform some **clustering method** such as COG search (cluster of orthologous genes), based on *best reciprocal hits*.
 
-* There are multiple *Tools and Methodologies* that are currently developing in this field, such as **Pipelines for building Ortholog Data Sets**, **Comprehensive Visual Exploration in Orthology and Paralogy Analysis**, and many more examples, as *this article* shows (https://doi.org/10.3389/fgene.2017.00165)
+* There are multiple *Tools and Methodologies* that are currently being developped in this field, such as **Pipelines for building Ortholog Data Sets**, **Comprehensive Visual Exploration in Orthology and Paralogy Analysis**, and many more examples, as *this article* shows (https://doi.org/10.3389/fgene.2017.00165)
 
