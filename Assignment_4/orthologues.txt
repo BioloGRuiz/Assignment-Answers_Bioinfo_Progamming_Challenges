@@ -1,0 +1,4 @@
+Possible orthologues combinations found (from S. pombe and A. thaliana, respectively):
+
+
+The total number of putative orthologues detected is 0
